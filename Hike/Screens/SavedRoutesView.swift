@@ -49,15 +49,17 @@ struct SavedRoutesView: View {
             .scrollContentBackground(.hidden)
             .background {
                 // The pole the plates hang on.
+                // It starts below the title bar, so it does not run through the title.
                 ZStack {
                     Brand.ground
+                        .ignoresSafeArea()
                     if !model.savedRoutes.isEmpty {
                         Rectangle()
                             .fill(Brand.line)
                             .frame(width: 10)
+                            .ignoresSafeArea(edges: .bottom)
                     }
                 }
-                .ignoresSafeArea()
             }
             .overlay {
                 if model.savedRoutes.isEmpty {

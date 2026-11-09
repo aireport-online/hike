@@ -36,12 +36,25 @@ jobs:
           echo "SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
       - name: Build and run unit and UI tests
         run: |
+          # Record the simulator's screen while the tests drive the app: the UI test doubles
+          # as a walkthrough of the app.
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          mkdir -p video
+          xcrun simctl io "$SIMULATOR_UDID" recordVideo --codec=h264 --force video/walkthrough.mp4 &
+          RECORDER=$!
+          set +e
           xcodebuild test \
             -project Hike.xcodeproj \
             -scheme Hike \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -resultBundlePath TestResults.xcresult \
             -quiet
+          STATUS=$?
+          kill -INT "$RECORDER"
+          wait "$RECORDER"
+          ls -la video
+          exit $STATUS
       - name: Show why tests failed
         if: failure()
         run: xcrun xcresulttool get test-results summary --path TestResults.xcresult
@@ -56,4 +69,11 @@ jobs:
         with:
           name: screenshots
           path: screenshots
+          if-no-files-found: warn
+      - name: Upload walkthrough video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walkthrough
+          path: video
           if-no-files-found: warn
