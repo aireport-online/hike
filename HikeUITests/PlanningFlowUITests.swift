@@ -15,7 +15,7 @@ final class PlanningFlowUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["Tik op de kaart om te beginnen"].waitForExistence(timeout: 30))
-        Thread.sleep(forTimeInterval: 3)
+        Thread.sleep(forTimeInterval: 6)
         attachScreenshot(of: app, named: "1-start")
 
         // Find a mountain hut and jump to it.

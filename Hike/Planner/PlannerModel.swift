@@ -12,6 +12,9 @@ final class PlannerModel {
 
     private(set) var plan = RoutePlan()
     private(set) var segments: [MapSegment] = []
+    /// The waypoints as shown on the map: moved onto the path where the route actually starts,
+    /// passes and ends, which can be some way from where the finger landed.
+    private(set) var markers: [Waypoint] = []
     private(set) var segmentsVersion = 0
     private(set) var geometry = RouteGeometry(points: [])
     private(set) var stats = RouteStats.empty
@@ -204,10 +207,15 @@ final class PlannerModel {
         var newSegments: [MapSegment] = []
         var firstError: RoutingError?
         var complete = !keys.isEmpty
+        var newMarkers = plan.waypoints
 
-        for key in keys {
+        for (index, key) in keys.enumerated() {
             if let legPoints = legCache[key] {
                 points.append(contentsOf: legPoints)
+                if key.mode == .trail, let first = legPoints.first, let last = legPoints.last {
+                    newMarkers[index].coordinate = first.coordinate
+                    newMarkers[index + 1].coordinate = last.coordinate
+                }
                 newSegments.append(MapSegment(
                     coordinates: legPoints.map(\.coordinate),
                     kind: key.mode == .straight ? .straight : .trail
@@ -227,6 +235,7 @@ final class PlannerModel {
 
         segments = newSegments
         segmentsVersion += 1
+        markers = newMarkers
         geometry = RouteGeometry(points: points)
         stats = RouteStats(points: points)
         profile = geometry.elevationProfile(maxSamples: 300)

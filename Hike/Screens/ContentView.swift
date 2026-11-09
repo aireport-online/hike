@@ -33,7 +33,7 @@ struct ContentView: View {
                 showsUserLocation: permission.isAuthorized,
                 segments: model.segments,
                 segmentsVersion: model.segmentsVersion,
-                waypoints: model.waypoints,
+                waypoints: model.markers,
                 scrubCoordinate: model.scrubCoordinate,
                 searchPin: model.searchPin,
                 camera: model.camera,

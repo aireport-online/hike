@@ -29,7 +29,10 @@ struct MapView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView(frame: .zero)
+        // A region set on a map without a size does not stick, so it is given a plausible size
+        // now and the region is applied again at the first real layout.
+        let mapView = SizedMapView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        mapView.pendingRegion = Self.initialRegion()
         mapView.delegate = context.coordinator
         mapView.isRotateEnabled = false
         mapView.isPitchEnabled = false
@@ -145,6 +148,16 @@ struct MapView: UIViewRepresentable {
                 mapView.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .flat)
             }
 
+            // Past the deepest tiles there is nothing to draw, so zooming in stops a little
+            // beyond the point where they are shown at full size.
+            let closest: CLLocationDistance
+            switch parent.style.tileSource?.maxZoom {
+            case .some(let maxZoom) where maxZoom <= 17: closest = 300
+            case .some: closest = 120
+            case .none: closest = 100
+            }
+            mapView.cameraZoomRange = MKMapView.CameraZoomRange(minCenterCoordinateDistance: closest)
+
             // Tiles go underneath the route: base map first, then the trail overlay.
             var index = 0
             if let source = parent.style.tileSource {
@@ -244,6 +257,7 @@ struct MapView: UIViewRepresentable {
         func applyCamera(to mapView: MKMapView) {
             guard let command = parent.camera, command.id != appliedCameraID else { return }
             appliedCameraID = command.id
+            (mapView as? SizedMapView)?.pendingRegion = nil
 
             switch command.request {
             case .followUser:
@@ -444,6 +458,21 @@ struct MapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             MapView.remember(mapView.region)
+        }
+    }
+}
+
+// MARK: - Map view
+
+/// Applies its starting region at the first layout with a real size.
+final class SizedMapView: MKMapView {
+    var pendingRegion: MKCoordinateRegion?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if let region = pendingRegion, bounds.width > 0, bounds.height > 0, window != nil {
+            pendingRegion = nil
+            setRegion(region, animated: false)
         }
     }
 }

@@ -29,11 +29,11 @@ struct SearchView: View {
                             .frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(place.name)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color(.label))
                             if !place.detail.isEmpty {
                                 Text(place.detail)
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color(.secondaryLabel))
                             }
                         }
                     }

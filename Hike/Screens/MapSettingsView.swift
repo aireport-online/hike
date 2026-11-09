@@ -19,10 +19,10 @@ struct MapSettingsView: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(style.title)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(Color(.label))
                                     Text(style.subtitle)
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color(.secondaryLabel))
                                 }
                                 Spacer(minLength: 0)
                                 if style.rawValue == mapStyleRaw {

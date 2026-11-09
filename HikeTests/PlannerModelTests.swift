@@ -6,13 +6,18 @@ import XCTest
 private actor StubService: RoutingService {
     var calls: [(Coordinate, Coordinate)] = []
     var failing = false
+    /// How far east of the requested points the "path" lies, as a real router snaps to paths.
+    var snapOffset = 0.0
     func setFailing(_ value: Bool) { failing = value }
+    func setSnapOffset(_ value: Double) { snapOffset = value }
     func route(from: Coordinate, to: Coordinate) async throws -> [TrackPoint] {
         calls.append((from, to))
         try await Task.sleep(nanoseconds: 5_000_000)
         if failing { throw RoutingError.noRouteFound }
         return (0...4).map { step in
-            TrackPoint(coordinate: from.interpolated(to: to, fraction: Double(step) / 4), elevation: 1000 + Double(step) * 50)
+            var coordinate = from.interpolated(to: to, fraction: Double(step) / 4)
+            coordinate.longitude += snapOffset
+            return TrackPoint(coordinate: coordinate, elevation: 1000 + Double(step) * 50)
         }
     }
 }
@@ -182,6 +187,30 @@ final class PlannerModelTests: XCTestCase {
         relaunched.delete(try XCTUnwrap(relaunched.savedRoutes.first { $0.id == relaunched.currentRouteID }))
         XCTAssertEqual(relaunched.savedRoutes.count, 1)
         XCTAssertNil(relaunched.currentRouteName)
+    }
+
+    func testMarkersSitOnThePathWhileThePlanKeepsTheTappedPoints() async throws {
+        let service = StubService()
+        await service.setSnapOffset(0.001)
+        let model = makeModel(service)
+        model.addWaypoint(a)
+        XCTAssertEqual(model.markers.map(\.coordinate), [a])
+        model.addWaypoint(b)
+        model.legMode = .straight
+        model.addWaypoint(c)
+        try await settle(model)
+
+        // The routed leg's ends move onto the path; the straight leg ends where it was tapped.
+        XCTAssertEqual(model.markers.map(\.coordinate.longitude), [8.001, 8.001, 8.0])
+        XCTAssertEqual(model.markers.map(\.id), model.waypoints.map(\.id))
+        XCTAssertEqual(model.waypoints.map(\.coordinate), [a, b, c])
+
+        // Dragging a marker moves the waypoint it stands for.
+        let moved = Coordinate(latitude: 46.03, longitude: 8.02)
+        model.moveWaypoint(id: model.markers[1].id, to: moved)
+        try await settle(model)
+        XCTAssertEqual(model.waypoints[1].coordinate, moved)
+        XCTAssertEqual(model.markers[1].coordinate.longitude, 8.021, accuracy: 1e-9)
     }
 
     func testSearchPinBecomesWaypoint() async throws {

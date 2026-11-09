@@ -112,17 +112,18 @@ private struct RouteRow: View {
         let stats = route.stats
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
+                // Concrete label colours: inside a button, .primary and friends follow the tint.
                 Text(route.name)
                     .font(.headline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color(.label))
                     .lineLimit(2)
                 Text(summary(stats))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(.secondaryLabel))
                     .monospacedDigit()
                 Text(route.updatedAt.formatted(date: .abbreviated, time: .omitted))
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color(.tertiaryLabel))
             }
             Spacer(minLength: 0)
             if isCurrent {
