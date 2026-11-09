@@ -302,6 +302,7 @@ struct RoutePanel: View {
                 selection: $model.legMode,
                 onYellow: true
             )
+            .accessibilityElement(children: .contain)
             .accessibilityLabel("Volgende stuk")
 
             Button("Bewaar", action: onSave)

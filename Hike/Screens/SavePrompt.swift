@@ -63,6 +63,7 @@ struct SavePrompt: View {
             .environment(\.colorScheme, .light)
             .tint(Brand.ink)
             .padding(.horizontal, 18)
+            .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)
         }
         .onAppear { nameIsFocused = true }

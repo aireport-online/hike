@@ -78,7 +78,8 @@ struct ElevationChart: View {
                         .foregroundStyle(Brand.ink.opacity(0.35))
                     AxisValueLabel {
                         if let metres = value.as(Double.self) {
-                            Text("\(Int(metres)) m")
+                            // Formatted the same way as the figures above the chart.
+                            Text(HikeFormat.elevation(metres))
                                 .font(.signLabel(11))
                                 .foregroundStyle(Brand.ink.opacity(0.8))
                         }

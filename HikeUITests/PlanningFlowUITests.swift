@@ -65,7 +65,9 @@ final class PlanningFlowUITests: XCTestCase {
         XCTAssertTrue(endMarker.waitForExistence(timeout: 5), "the end marker is not exposed to accessibility")
         endMarker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
             forDuration: 1.2,
-            thenDragTo: map.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.33))
+            thenDragTo: map.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.33)),
+            withVelocity: .slow,
+            thenHoldForDuration: 0.5
         )
         Thread.sleep(forTimeInterval: 1)
         waitForRoute(in: app)
