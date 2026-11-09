@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Kernlogica (swift test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test HikeCore
+        working-directory: HikeCore
+        run: |
+          swift --version
+          swift test
+
+  app:
+    name: iOS-app (xcodebuild)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Build for the iOS Simulator
+        run: |
+          xcodebuild build \
+            -project Hike.xcodeproj \
+            -scheme Hike \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO
