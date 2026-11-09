@@ -39,7 +39,7 @@ struct MapView: UIViewRepresentable {
         mapView.showsCompass = false
         mapView.showsScale = true
         mapView.accessibilityIdentifier = "map"
-        mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.waypointReuseID)
+        mapView.register(WaypointAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.waypointReuseID)
         mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.searchPinReuseID)
         mapView.register(MKAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.scrubReuseID)
         mapView.setRegion(Self.initialRegion(), animated: false)
@@ -337,27 +337,31 @@ struct MapView: UIViewRepresentable {
                 return MKOverlayRenderer(overlay: overlay)
             }
             let renderer = MKPolylineRenderer(polyline: line)
-            renderer.lineCap = .round
             renderer.lineJoin = .round
+            renderer.lineCap = .round
+            // Signpost colours: a yellow line in a charcoal outline stands out on any map.
             switch line.look {
             case .casing:
-                renderer.strokeColor = UIColor.white.withAlphaComponent(0.9)
+                renderer.strokeColor = Brand.UI.ink
                 renderer.lineWidth = 9
             case .trail:
-                renderer.strokeColor = RoutePolyline.routeColor
+                renderer.strokeColor = Brand.UI.yellow
                 renderer.lineWidth = 5
             case .straight:
-                renderer.strokeColor = RoutePolyline.routeColor
+                renderer.strokeColor = Brand.UI.yellow
                 renderer.lineWidth = 5
-                renderer.lineDashPattern = [2, 10]
+                renderer.lineCap = .butt
+                renderer.lineDashPattern = [9, 7]
             case .pending:
-                renderer.strokeColor = UIColor.systemGray
+                renderer.strokeColor = Brand.UI.ink.withAlphaComponent(0.7)
                 renderer.lineWidth = 3
-                renderer.lineDashPattern = [6, 8]
+                renderer.lineCap = .butt
+                renderer.lineDashPattern = [6, 6]
             case .failed:
-                renderer.strokeColor = UIColor.systemRed
+                renderer.strokeColor = Brand.UI.blaze
                 renderer.lineWidth = 3
-                renderer.lineDashPattern = [6, 8]
+                renderer.lineCap = .butt
+                renderer.lineDashPattern = [6, 6]
             }
             return renderer
         }
@@ -368,24 +372,23 @@ struct MapView: UIViewRepresentable {
                 view.isDraggable = true
                 view.canShowCallout = false
                 view.displayPriority = .required
-                if let marker = view as? MKMarkerAnnotationView {
-                    marker.animatesWhenAdded = false
-                    marker.titleVisibility = .hidden
-                    marker.subtitleVisibility = .hidden
-                    switch waypoint.role {
-                    case .start:
-                        marker.markerTintColor = .systemGreen
-                        marker.glyphText = nil
-                        marker.glyphImage = UIImage(systemName: "figure.hiking")
-                    case .end:
-                        marker.markerTintColor = .systemRed
-                        marker.glyphText = nil
-                        marker.glyphImage = UIImage(systemName: "flag.checkered")
-                    case .via:
-                        marker.markerTintColor = RoutePolyline.routeColor
-                        marker.glyphImage = nil
-                        marker.glyphText = String(waypoint.index)
-                    }
+                view.isAccessibilityElement = true
+                switch waypoint.role {
+                case .start:
+                    view.image = MarkerArt.start
+                    view.centerOffset = .zero
+                    view.zPriority = .defaultUnselected
+                    view.accessibilityLabel = "Startpunt"
+                case .end:
+                    view.image = MarkerArt.end
+                    view.centerOffset = MarkerArt.endOffset
+                    view.zPriority = .max
+                    view.accessibilityLabel = "Eindpunt"
+                case .via:
+                    view.image = MarkerArt.via(waypoint.index)
+                    view.centerOffset = .zero
+                    view.zPriority = .defaultUnselected
+                    view.accessibilityLabel = "Punt \(waypoint.index)"
                 }
                 return view
             }
@@ -395,7 +398,8 @@ struct MapView: UIViewRepresentable {
                 view.canShowCallout = false
                 view.displayPriority = .required
                 if let marker = view as? MKMarkerAnnotationView {
-                    marker.markerTintColor = .systemPurple
+                    marker.markerTintColor = Brand.UI.ink
+                    marker.glyphTintColor = Brand.UI.yellow
                     marker.glyphImage = UIImage(systemName: "magnifyingglass")
                     marker.titleVisibility = .visible
                 }
@@ -404,7 +408,7 @@ struct MapView: UIViewRepresentable {
 
             if annotation is ScrubAnnotation {
                 let view = mapView.dequeueReusableAnnotationView(withIdentifier: Self.scrubReuseID, for: annotation)
-                view.image = ScrubAnnotation.image
+                view.image = MarkerArt.scrub
                 view.isEnabled = false
                 view.canShowCallout = false
                 view.displayPriority = .required
@@ -485,9 +489,6 @@ final class RoutePolyline: MKPolyline {
     }
 
     var look: Look = .trail
-
-    /// A strong magenta: unlike blue, green or red it is not used for anything on a hiking map.
-    static let routeColor = UIColor(red: 0.80, green: 0.10, blue: 0.55, alpha: 1)
 }
 
 final class WaypointAnnotation: MKPointAnnotation {
@@ -511,16 +512,148 @@ final class WaypointAnnotation: MKPointAnnotation {
 final class SearchPinAnnotation: MKPointAnnotation {}
 
 /// The spot on the route that belongs to the finger position on the elevation profile.
-final class ScrubAnnotation: MKPointAnnotation {
-    static let image: UIImage = {
+final class ScrubAnnotation: MKPointAnnotation {}
+
+/// A waypoint marker that can be picked up and dragged.
+final class WaypointAnnotationView: MKAnnotationView {
+    override func setDragState(_ newDragState: MKAnnotationView.DragState, animated: Bool) {
+        super.setDragState(newDragState, animated: animated)
+        // A plain annotation view has to walk through the drag states itself.
+        switch newDragState {
+        case .starting:
+            dragState = .dragging
+            setLifted(true)
+        case .ending, .canceling:
+            dragState = .none
+            setLifted(false)
+        default:
+            break
+        }
+    }
+
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated)
+        if dragState == .none {
+            setLifted(selected)
+        }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        transform = .identity
+    }
+
+    private func setLifted(_ lifted: Bool) {
+        UIView.animate(withDuration: 0.15) {
+            self.transform = lifted ? CGAffineTransform(scaleX: 1.35, y: 1.35) : .identity
+        }
+    }
+}
+
+/// Marker drawings in the signpost colours, each with a white edge so it reads on any map.
+enum MarkerArt {
+    /// Start: a charcoal ring.
+    static let start: UIImage = {
+        let size = CGSize(width: 28, height: 28)
+        return UIGraphicsImageRenderer(size: size).image { context in
+            let cg = context.cgContext
+            let bounds = CGRect(origin: .zero, size: size)
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 1, dy: 1))
+            cg.setFillColor(Brand.UI.ink.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 3, dy: 3))
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 9, dy: 9))
+        }
+    }()
+
+    /// End: a charcoal pennant on a pole, standing on the point it marks.
+    static let end: UIImage = {
+        let size = CGSize(width: 36, height: 42)
+        return UIGraphicsImageRenderer(size: size).image { context in
+            let cg = context.cgContext
+            let foot = CGPoint(x: 9, y: 36)
+            let top = CGPoint(x: 9, y: 5)
+
+            let pennant = UIBezierPath()
+            pennant.move(to: top)
+            pennant.addLine(to: CGPoint(x: 32, y: 12.5))
+            pennant.addLine(to: CGPoint(x: 9, y: 20))
+            pennant.close()
+
+            let pole = UIBezierPath()
+            pole.move(to: top)
+            pole.addLine(to: foot)
+
+            // White edge first, charcoal on top.
+            cg.setLineJoin(.round)
+            cg.setLineCap(.round)
+            UIColor.white.setStroke()
+            pennant.lineWidth = 5
+            pennant.stroke()
+            pole.lineWidth = 7.5
+            pole.stroke()
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillEllipse(in: CGRect(x: foot.x - 5.5, y: foot.y - 5.5, width: 11, height: 11))
+
+            Brand.UI.ink.setFill()
+            Brand.UI.ink.setStroke()
+            pennant.lineWidth = 1.5
+            pennant.fill()
+            pennant.stroke()
+            pole.lineWidth = 3.5
+            pole.stroke()
+            cg.fillEllipse(in: CGRect(x: foot.x - 3.5, y: foot.y - 3.5, width: 7, height: 7))
+        }
+    }()
+
+    /// Moves the end marker so the foot of its pole, not its centre, sits on the coordinate.
+    static let endOffset = CGPoint(x: 36 / 2 - 9, y: -(36 - 42 / 2))
+
+    private static var viaCache: [Int: UIImage] = [:]
+
+    /// An intermediate point: a numbered yellow disc.
+    static func via(_ number: Int) -> UIImage {
+        if let cached = viaCache[number] {
+            return cached
+        }
+        let size = CGSize(width: 26, height: 26)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            let cg = context.cgContext
+            let bounds = CGRect(origin: .zero, size: size)
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillEllipse(in: bounds)
+            cg.setFillColor(Brand.UI.ink.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 1.5, dy: 1.5))
+            cg.setFillColor(Brand.UI.yellow.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 3.5, dy: 3.5))
+
+            let text = String(number) as NSString
+            let font = UIFont(name: Brand.FontName.sign, size: number > 9 ? 13 : 15)
+                ?? UIFont.systemFont(ofSize: 13, weight: .bold)
+            let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: Brand.UI.ink]
+            let textSize = text.size(withAttributes: attributes)
+            text.draw(
+                at: CGPoint(x: (size.width - textSize.width) / 2, y: (size.height - textSize.height) / 2),
+                withAttributes: attributes
+            )
+        }
+        viaCache[number] = image
+        return image
+    }
+
+    /// The spot on the route that matches the finger on the elevation profile.
+    static let scrub: UIImage = {
         let size = CGSize(width: 20, height: 20)
         return UIGraphicsImageRenderer(size: size).image { context in
-            let rect = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
-            context.cgContext.setFillColor(RoutePolyline.routeColor.cgColor)
-            context.cgContext.fillEllipse(in: rect)
-            context.cgContext.setStrokeColor(UIColor.white.cgColor)
-            context.cgContext.setLineWidth(3)
-            context.cgContext.strokeEllipse(in: rect)
+            let cg = context.cgContext
+            let bounds = CGRect(origin: .zero, size: size)
+            cg.setFillColor(Brand.UI.ink.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 1, dy: 1))
+            cg.setFillColor(Brand.UI.blaze.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 3.5, dy: 3.5))
+            cg.setFillColor(UIColor.white.cgColor)
+            cg.fillEllipse(in: bounds.insetBy(dx: 7, dy: 7))
         }
     }()
 }

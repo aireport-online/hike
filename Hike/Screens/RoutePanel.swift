@@ -1,18 +1,21 @@
 import HikeCore
 import SwiftUI
 
-/// The card at the bottom of the map: what the planned route adds up to, and what to do with it.
+/// The signpost plate at the bottom of the map: what the planned route adds up to, and what to
+/// do with it.
 struct RoutePanel: View {
     @Environment(PlannerModel.self) private var model
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     let pace: Pace
     var onShowRoutes: () -> Void
+    var onSave: () -> Void
 
-    @State private var showsSavePrompt = false
-    @State private var saveName = ""
     @State private var showsDiscardConfirmation = false
     @State private var shareItem: ShareItem?
+
+    /// Depth of the plate's pointed end; content keeps clear of it.
+    private let point: CGFloat = 18
 
     var body: some View {
         @Bindable var model = model
@@ -25,7 +28,7 @@ struct RoutePanel: View {
                 statistics
                 if verticalSizeClass != .compact, model.profile.count >= 2 {
                     ElevationChart(samples: model.profile, scrubDistance: $model.scrubDistance)
-                        .frame(height: 96)
+                        .frame(height: 92)
                 }
                 if let error = model.routingError {
                     routingFailure(error)
@@ -36,24 +39,32 @@ struct RoutePanel: View {
                 actions
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 10)
+        .foregroundStyle(Brand.ink)
+        .padding(.leading, 16)
+        .padding(.trailing, 12 + point)
+        .padding(.vertical, 14)
         .frame(maxWidth: 560, alignment: .leading)
         .background {
-            UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20)
-                .fill(.regularMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 8, y: -1)
-                .ignoresSafeArea(edges: .bottom)
+            SignpostShape(point: point)
+                .fill(Brand.yellow)
+                .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
         }
+        .overlay {
+            SignpostShape(point: point)
+                .stroke(Brand.ink, lineWidth: Brand.outline)
+        }
+        .overlay(alignment: .trailing) {
+            // The blaze sits on the tip of the plate, as it does on a mountain-trail signpost.
+            BlazeMark()
+                .frame(width: 9, height: 24)
+                .padding(.trailing, 6)
+        }
+        // The plate is yellow by day and by night, so everything on it stays dark-on-light.
+        .environment(\.colorScheme, .light)
+        .tint(Brand.ink)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
         .frame(maxWidth: .infinity)
-        .alert("Route opslaan", isPresented: $showsSavePrompt) {
-            TextField("Naam", text: $saveName)
-            Button("Opslaan") { model.save(name: saveName) }
-            Button("Annuleer", role: .cancel) {}
-        } message: {
-            Text("Geef je wandeling een naam.")
-        }
         .confirmationDialog(
             "Deze route is niet opgeslagen",
             isPresented: $showsDiscardConfirmation,
@@ -70,16 +81,16 @@ struct RoutePanel: View {
     // MARK: - Empty
 
     private var emptyState: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 14) {
             Image(systemName: "hand.tap")
-                .font(.title2)
-                .foregroundStyle(Color.accentColor)
+                .font(.system(size: 34, weight: .medium))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Tik op de kaart om te beginnen")
-                    .font(.headline)
+                Text("TIK OP DE KAART")
+                    .font(.sign(28, relativeTo: .title2))
                 Text("Elk volgend punt wordt over wandelpaden verbonden.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.text(15, relativeTo: .subheadline))
+                    .foregroundStyle(Brand.ink.opacity(0.75))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             if model.canUndo {
@@ -88,26 +99,25 @@ struct RoutePanel: View {
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(OutlineButtonStyle(onYellow: true))
                 .accessibilityLabel("Herstel")
-            } else if !model.savedRoutes.isEmpty {
-                Button("Mijn routes", action: onShowRoutes)
-                    .buttonStyle(.bordered)
             }
         }
+        .padding(.vertical, 6)
     }
 
     // MARK: - Route
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Text(model.currentRouteName ?? "Nieuwe route")
-                .font(.headline)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text((model.currentRouteName ?? "Nieuwe route").uppercased())
+                .font(.sign(26, relativeTo: .title2))
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
             if model.currentRouteName != nil, model.hasUnsavedChanges {
-                Text("gewijzigd")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("GEWIJZIGD")
+                    .font(.signLabel(13))
+                    .foregroundStyle(Brand.ink.opacity(0.7))
             }
             if model.isRouting {
                 ProgressView()
@@ -144,7 +154,7 @@ struct RoutePanel: View {
 
                 Section {
                     Button(action: onShowRoutes) {
-                        Label("Mijn routes", systemImage: "bookmark")
+                        Label("Mijn routes", systemImage: "signpost.right")
                     }
                     Button(role: .destructive) {
                         startOver()
@@ -153,9 +163,14 @@ struct RoutePanel: View {
                     }
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.title3)
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17, weight: .bold))
                     .frame(width: 36, height: 30)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Brand.corner)
+                            .strokeBorder(Brand.ink, lineWidth: Brand.outline)
+                    }
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Meer")
         }
@@ -165,124 +180,138 @@ struct RoutePanel: View {
     private var statistics: some View {
         if model.waypoints.count < 2 {
             Text("Tik op de kaart voor het volgende punt.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.text(15, relativeTo: .subheadline))
+                .foregroundStyle(Brand.ink.opacity(0.75))
         } else {
             HStack(alignment: .top, spacing: 0) {
-                statistic(HikeFormat.distance(model.stats.distance), label: "Afstand")
-                statistic("↑ " + HikeFormat.elevation(model.stats.ascent), label: "Stijgen")
-                statistic("↓ " + HikeFormat.elevation(model.stats.descent), label: "Dalen")
-                statistic(HikeFormat.duration(model.stats.duration(pace: pace)), label: "Wandeltijd")
+                statistic(HikeFormat.distance(model.stats.distance), symbol: "arrow.left.and.right", label: "Afstand")
+                divider
+                statistic(HikeFormat.elevation(model.stats.ascent), symbol: "arrow.up", label: "Stijgen")
+                divider
+                statistic(HikeFormat.elevation(model.stats.descent), symbol: "arrow.down", label: "Dalen")
+                divider
+                statistic(HikeFormat.duration(model.stats.duration(pace: pace)), symbol: "clock", label: "Wandeltijd")
             }
-            .opacity(model.isComplete ? 1 : 0.5)
+            .opacity(model.isComplete ? 1 : 0.45)
         }
     }
 
-    private func statistic(_ value: String, label: String) -> some View {
+    private var divider: some View {
+        Rectangle()
+            .fill(Brand.ink.opacity(0.3))
+            .frame(width: 1, height: 44)
+            .padding(.horizontal, 6)
+    }
+
+    /// A figure set large with its unit small beside it, under a pictogram, as on a signpost.
+    private func statistic(_ value: String, symbol: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(value)
-                .font(.system(.title3, design: .rounded, weight: .semibold))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .bold))
+                .frame(height: 14)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                ForEach(Array(HikeFormat.tokens(value).enumerated()), id: \.offset) { _, token in
+                    Text(token.text)
+                        .font(token.isFigure ? .sign(30, relativeTo: .title) : .signLabel(15, relativeTo: .footnote))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     private func routingFailure(_ error: RoutingError) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label {
                 Text(error.localizedDescription)
-                    .font(.footnote)
+                    .font(.text(14, relativeTo: .footnote))
                     .fixedSize(horizontal: false, vertical: true)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Brand.blaze)
             }
             HStack(spacing: 8) {
                 Button("Opnieuw") { model.retryFailedLegs() }
                 Button("Rechte lijn") { model.useStraightLinesForFailedLegs() }
                     .accessibilityIdentifier("straightLineFallbackButton")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(OutlineButtonStyle(onYellow: true, compact: true))
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.white, in: RoundedRectangle(cornerRadius: Brand.corner))
+        .overlay {
+            RoundedRectangle(cornerRadius: Brand.corner)
+                .strokeBorder(Brand.ink, lineWidth: Brand.outline)
+        }
     }
 
     private func selectedWaypoint(index: Int) -> some View {
-        HStack {
-            Text(waypointTitle(index: index))
-                .font(.subheadline)
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(waypointTitle(index: index).uppercased())
+                    .font(.sign(17, relativeTo: .subheadline))
+                Text("Houd vast om te verslepen")
+                    .font(.text(13, relativeTo: .caption))
+                    .foregroundStyle(Brand.ink.opacity(0.7))
+            }
             Spacer(minLength: 0)
-            Button(role: .destructive) {
+            Button {
                 if let id = model.selectedWaypointID {
                     model.removeWaypoint(id: id)
                 }
             } label: {
-                Label("Verwijder punt", systemImage: "trash")
+                Label("Verwijder", systemImage: "trash")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(OutlineButtonStyle(onYellow: true, compact: true))
         }
     }
 
     private func waypointTitle(index: Int) -> String {
         if index == 0 {
-            return "Startpunt · houd vast om te verslepen"
+            return "Startpunt"
         }
         if index == model.waypoints.count - 1 {
-            return "Eindpunt · houd vast om te verslepen"
+            return "Eindpunt"
         }
-        return "Punt \(index) · houd vast om te verslepen"
+        return "Punt \(index)"
     }
 
     private var actions: some View {
         @Bindable var model = model
 
-        return HStack(spacing: 10) {
+        return HStack(spacing: 8) {
             Button {
                 model.undo()
             } label: {
                 Image(systemName: "arrow.uturn.backward")
-                    .frame(height: 22)
+                    .font(.system(size: 16, weight: .bold))
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(OutlineButtonStyle(onYellow: true))
             .disabled(!model.canUndo)
             .accessibilityLabel("Herstel")
 
-            Picker("Volgende stuk", selection: $model.legMode) {
-                Text("Over paden").tag(LegMode.trail)
-                Text("Rechte lijn").tag(LegMode.straight)
-            }
-            .pickerStyle(.segmented)
+            SignSwitch(
+                options: [
+                    SignSwitch<LegMode>.Option(value: .trail, title: "Paden"),
+                    SignSwitch<LegMode>.Option(value: .straight, title: "Recht")
+                ],
+                selection: $model.legMode,
+                onYellow: true
+            )
+            .accessibilityLabel("Volgende stuk")
 
-            Button {
-                promptForSave()
-            } label: {
-                Text("Bewaar")
-                    .frame(height: 22)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!model.isComplete || (model.currentRouteName != nil && !model.hasUnsavedChanges))
-            .accessibilityIdentifier("saveButton")
+            Button("Bewaar", action: onSave)
+                .buttonStyle(InkButtonStyle())
+                .disabled(!model.isComplete || (model.currentRouteName != nil && !model.hasUnsavedChanges))
+                .accessibilityIdentifier("saveButton")
         }
     }
 
     // MARK: - Actions
-
-    private func promptForSave() {
-        Task {
-            saveName = await model.suggestedName()
-            showsSavePrompt = true
-        }
-    }
 
     private func share() {
         if let url = model.exportCurrentRoute() {

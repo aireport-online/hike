@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var showsLocationDenied = false
     /// The user asked for their position before permission was given; follow once it is.
     @State private var followsWhenAuthorized = false
+    /// The name being typed in the save prompt; nil while the prompt is closed.
+    @State private var saveName: String?
     @State private var topInset: CGFloat = 0
     @State private var bottomInset: CGFloat = 0
 
@@ -52,11 +54,25 @@ struct ContentView: View {
                 Spacer(minLength: 0)
                 VStack(spacing: 0) {
                     attribution
-                    RoutePanel(pace: pace, onShowRoutes: { activeSheet = .routes })
+                    RoutePanel(pace: pace, onShowRoutes: { activeSheet = .routes }, onSave: { promptForSave() })
                 }
                 .background { heightReader { bottomInset = $0 } }
             }
+
+            if saveName != nil {
+                SavePrompt(
+                    name: Binding(get: { saveName ?? "" }, set: { saveName = $0 }),
+                    onCancel: { saveName = nil },
+                    onSave: {
+                        model.save(name: saveName ?? "")
+                        saveName = nil
+                    }
+                )
+                .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.15), value: saveName != nil)
+        .tint(Brand.line)
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .search:
@@ -106,38 +122,40 @@ struct ContentView: View {
             Button {
                 activeSheet = .search
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                    Text("Zoek een plaats, berg of hut")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Brand.line)
+                    Text("Zoek een plaats, top of hut")
+                        .font(.text(17))
+                        .foregroundStyle(Brand.line.opacity(0.6))
                     Spacer(minLength: 0)
                 }
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background(.regularMaterial, in: Capsule())
-                .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 46)
+                .background(Brand.paper, in: RoundedRectangle(cornerRadius: Brand.corner))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Brand.corner)
+                        .strokeBorder(Brand.line, lineWidth: Brand.outline)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("searchButton")
 
-            VStack(spacing: 0) {
+            VStack(spacing: 6) {
                 mapButton("square.3.layers.3d", label: "Kaartlagen") {
                     activeSheet = .settings
                 }
-                Divider()
+                .accessibilityIdentifier("layersButton")
                 mapButton("location", label: "Mijn locatie") {
                     showUserLocation()
                 }
-                Divider()
-                mapButton("bookmark", label: "Mijn routes") {
+                mapButton("signpost.right", label: "Mijn routes") {
                     activeSheet = .routes
                 }
                 .accessibilityIdentifier("routesButton")
             }
-            .frame(width: 46)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
@@ -147,10 +165,17 @@ struct ContentView: View {
     private func mapButton(_ systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .medium))
-                .frame(width: 46, height: 44)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Brand.line)
+                .frame(width: 44, height: 44)
+                .background(Brand.paper, in: RoundedRectangle(cornerRadius: Brand.corner))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Brand.corner)
+                        .strokeBorder(Brand.line, lineWidth: Brand.outline)
+                }
                 .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(label)
     }
 
@@ -160,16 +185,22 @@ struct ContentView: View {
             HStack {
                 Spacer(minLength: 0)
                 Text(text)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
+                    .font(.text(9, relativeTo: .caption2))
+                    .foregroundStyle(Brand.line.opacity(0.75))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(.thinMaterial, in: Capsule())
+                    .background(Brand.paper.opacity(0.85), in: RoundedRectangle(cornerRadius: 2))
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .padding(.bottom, 4)
+        }
+    }
+
+    private func promptForSave() {
+        Task {
+            saveName = await model.suggestedName()
         }
     }
 

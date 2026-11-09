@@ -3,6 +3,11 @@
 iPhone-app om wandelingen te plannen, overal in Europa. Tik punten op de kaart; de app verbindt
 ze over wandelpaden en laat afstand, hoogtemeters, wandeltijd en het hoogteprofiel zien.
 
+Versie 2 heeft een eigen huisstijl, **Wegwijzer**: de gele wandelwegwijzer en de wit-rood-witte
+markering. Zie [docs/HUISSTIJL.md](docs/HUISSTIJL.md).
+
+![Ontwerp van Hike 2](docs/huisstijl/ontwerp-wegwijzer.jpg)
+
 ## Wat de app kan
 
 - **Plannen op de kaart** – tik om punten te zetten, houd een punt vast om het te verslepen,
@@ -34,7 +39,7 @@ Nodig: een Mac met Xcode 16 of nieuwer en een iPhone met iOS 17 of nieuwer.
 
 | Map | Inhoud |
 | --- | --- |
-| `Hike/` | De app (SwiftUI + MapKit): kaart, planner, schermen. |
+| `Hike/` | De app (SwiftUI + MapKit): kaart, planner, schermen. De huisstijl staat in `Hike/Brand/`. |
 | `HikeCore/` | Swift-package zonder Apple-afhankelijkheden: routemodel, statistiek, GPX, opslag en de clients voor routeberekening en zoeken. |
 | `HikeTests/` | Unit-tests van de planner (routes opbouwen, bewaren, GPX) met een nagebootste routeserver. |
 | `HikeUITests/` | Rooktest die de echte app bedient: zoeken, route tikken, bewaren. |

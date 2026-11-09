@@ -113,4 +113,12 @@ final class GeometryAndStatsTests: XCTestCase {
         XCTAssertEqual(HikeFormat.duration(3 * 3600 + 26 * 60), "3 u 25 min")
         XCTAssertEqual(HikeFormat.duration(60), "5 min")
     }
+
+    func testTokensSeparateFiguresFromUnits() {
+        XCTAssertEqual(HikeFormat.tokens("12,4 km").map(\.text), ["12,4", "km"])
+        XCTAssertEqual(HikeFormat.tokens("12,4 km").map(\.isFigure), [true, false])
+        XCTAssertEqual(HikeFormat.tokens("2 u 5 min").map(\.isFigure), [true, false, true, false])
+        XCTAssertEqual(HikeFormat.tokens("↑ 850 m").map(\.isFigure), [false, true, false])
+        XCTAssertTrue(HikeFormat.tokens("").isEmpty)
+    }
 }

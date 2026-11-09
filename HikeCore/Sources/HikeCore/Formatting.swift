@@ -13,6 +13,25 @@ public enum HikeFormat {
         return String(format: "%.1f", kilometres).replacingOccurrences(of: ".", with: ",") + " km"
     }
 
+    /// One piece of a formatted value: the figure itself or the unit that follows it.
+    public struct Token: Equatable, Sendable {
+        public var text: String
+        public var isFigure: Bool
+
+        public init(text: String, isFigure: Bool) {
+            self.text = text
+            self.isFigure = isFigure
+        }
+    }
+
+    /// Splits a formatted value such as "2 u 5 min" into figures and units, so a display can
+    /// set the figures large and the units small.
+    public static func tokens(_ formatted: String) -> [Token] {
+        formatted.split(separator: " ").map { part in
+            Token(text: String(part), isFigure: part.contains(where: \.isNumber))
+        }
+    }
+
     public static func elevation(_ metres: Double) -> String {
         "\(Int(metres.rounded())) m"
     }
