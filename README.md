@@ -6,12 +6,16 @@ ze over wandelpaden en laat afstand, hoogtemeters, wandeltijd en het hoogteprofi
 Versie 2 heeft een eigen huisstijl, **Wegwijzer**: de gele wandelwegwijzer en de wit-rood-witte
 markering. Zie [docs/HUISSTIJL.md](docs/HUISSTIJL.md).
 
-![Ontwerp van Hike 2](docs/huisstijl/ontwerp-wegwijzer.jpg)
+| Start | Route | Bewaren | Mijn routes |
+| --- | --- | --- | --- |
+| ![Start](docs/schermen/1-start.jpg) | ![Route](docs/schermen/4-route.jpg) | ![Bewaren](docs/schermen/6-bewaren.jpg) | ![Mijn routes](docs/schermen/7-mijn-routes.jpg) |
+
+Hoe je de app gebruikt, in 46 seconden: [docs/hike-2-gebruik.mp4](docs/hike-2-gebruik.mp4).
 
 ## Wat de app kan
 
 - **Plannen op de kaart** – tik om punten te zetten, houd een punt vast om het te verslepen,
-  tik erop om het te verwijderen. Herstel (undo), route omkeren en "terug naar start" voor een rondje.
+  tik erop om het te kunnen verwijderen. Herstel (undo), route omkeren en "terug naar start" voor een rondje.
 - **Routes over paden** – elk stuk wordt berekend over wandelpaden uit OpenStreetMap. Waar geen
   pad ligt kun je een stuk als rechte lijn tekenen.
 - **Hoogteprofiel** – stijgen, dalen, hoogste en laagste punt; sleep over het profiel om de plek
@@ -43,6 +47,9 @@ Nodig: een Mac met Xcode 16 of nieuwer en een iPhone met iOS 17 of nieuwer.
 | `HikeCore/` | Swift-package zonder Apple-afhankelijkheden: routemodel, statistiek, GPX, opslag en de clients voor routeberekening en zoeken. |
 | `HikeTests/` | Unit-tests van de planner (routes opbouwen, bewaren, GPX) met een nagebootste routeserver. |
 | `HikeUITests/` | Rooktest die de echte app bedient: zoeken, route tikken, bewaren. |
+
+De rooktest draait bij elke push ook in GitHub Actions; de schermafbeeldingen per stap en een
+schermopname van de hele doorloop staan daarna als artefacten (`screenshots`, `walkthrough`) bij de run.
 
 Alle tests draaien in Xcode met ⌘U. De kernlogica is ook los te testen, zonder Mac:
 
