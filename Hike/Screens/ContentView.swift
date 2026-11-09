@@ -119,6 +119,7 @@ struct ContentView: View {
                 .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("searchButton")
 
             VStack(spacing: 0) {
                 mapButton("square.3.layers.3d", label: "Kaartlagen") {
@@ -132,6 +133,7 @@ struct ContentView: View {
                 mapButton("bookmark", label: "Mijn routes") {
                     activeSheet = .routes
                 }
+                .accessibilityIdentifier("routesButton")
             }
             .frame(width: 46)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))

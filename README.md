@@ -36,8 +36,10 @@ Nodig: een Mac met Xcode 16 of nieuwer en een iPhone met iOS 17 of nieuwer.
 | --- | --- |
 | `Hike/` | De app (SwiftUI + MapKit): kaart, planner, schermen. |
 | `HikeCore/` | Swift-package zonder Apple-afhankelijkheden: routemodel, statistiek, GPX, opslag en de clients voor routeberekening en zoeken. |
+| `HikeTests/` | Unit-tests van de planner (routes opbouwen, bewaren, GPX) met een nagebootste routeserver. |
+| `HikeUITests/` | Rooktest die de echte app bedient: zoeken, route tikken, bewaren. |
 
-De kernlogica is los te testen, ook op Linux:
+Alle tests draaien in Xcode met ⌘U. De kernlogica is ook los te testen, zonder Mac:
 
 ```bash
 cd HikeCore && swift test

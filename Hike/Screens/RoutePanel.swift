@@ -206,6 +206,7 @@ struct RoutePanel: View {
             HStack(spacing: 8) {
                 Button("Opnieuw") { model.retryFailedLegs() }
                 Button("Rechte lijn") { model.useStraightLinesForFailedLegs() }
+                    .accessibilityIdentifier("straightLineFallbackButton")
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -270,6 +271,7 @@ struct RoutePanel: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(!model.isComplete || (model.currentRouteName != nil && !model.hasUnsavedChanges))
+            .accessibilityIdentifier("saveButton")
         }
     }
 

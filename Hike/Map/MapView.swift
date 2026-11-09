@@ -35,6 +35,7 @@ struct MapView: UIViewRepresentable {
         mapView.isPitchEnabled = false
         mapView.showsCompass = false
         mapView.showsScale = true
+        mapView.accessibilityIdentifier = "map"
         mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.waypointReuseID)
         mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.searchPinReuseID)
         mapView.register(MKAnnotationView.self, forAnnotationViewWithReuseIdentifier: Coordinator.scrubReuseID)
