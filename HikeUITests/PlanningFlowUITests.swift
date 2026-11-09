@@ -63,7 +63,7 @@ final class PlanningFlowUITests: XCTestCase {
         let endMarker = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == %@", "Eindpunt")).firstMatch
         XCTAssertTrue(endMarker.waitForExistence(timeout: 5), "the end marker is not exposed to accessibility")
-        endMarker.press(
+        endMarker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
             forDuration: 1.2,
             thenDragTo: map.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.33))
         )
