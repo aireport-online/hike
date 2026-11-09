@@ -369,10 +369,15 @@ struct MapView: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             if let waypoint = annotation as? WaypointAnnotation {
                 let view = mapView.dequeueReusableAnnotationView(withIdentifier: Self.waypointReuseID, for: annotation)
-                view.isDraggable = true
                 view.canShowCallout = false
                 view.displayPriority = .required
                 view.isAccessibilityElement = true
+                if let draggable = view as? WaypointAnnotationView {
+                    let id = waypoint.waypointID
+                    draggable.onDragEnded = { [weak self] coordinate in
+                        self?.parent.onMoveWaypoint(id, Coordinate(coordinate))
+                    }
+                }
                 switch waypoint.role {
                 case .start:
                     view.image = MarkerArt.start
@@ -438,28 +443,6 @@ struct MapView: UIViewRepresentable {
             DispatchQueue.main.async { callback(nil) }
         }
 
-        func mapView(
-            _ mapView: MKMapView,
-            annotationView view: MKAnnotationView,
-            didChange newState: MKAnnotationView.DragState,
-            fromOldState oldState: MKAnnotationView.DragState
-        ) {
-            switch newState {
-            case .ending:
-                view.setDragState(.none, animated: true)
-                if let waypoint = view.annotation as? WaypointAnnotation {
-                    let callback = parent.onMoveWaypoint
-                    let id = waypoint.waypointID
-                    let coordinate = Coordinate(waypoint.coordinate)
-                    DispatchQueue.main.async { callback(id, coordinate) }
-                }
-            case .canceling:
-                view.setDragState(.none, animated: true)
-            default:
-                break
-            }
-        }
-
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             MapView.remember(mapView.region)
         }
@@ -514,26 +497,106 @@ final class SearchPinAnnotation: MKPointAnnotation {}
 /// The spot on the route that belongs to the finger position on the elevation profile.
 final class ScrubAnnotation: MKPointAnnotation {}
 
-/// A waypoint marker that can be picked up and dragged.
-final class WaypointAnnotationView: MKAnnotationView {
-    override func setDragState(_ newDragState: MKAnnotationView.DragState, animated: Bool) {
-        super.setDragState(newDragState, animated: animated)
-        // A plain annotation view has to walk through the drag states itself.
-        switch newDragState {
-        case .starting:
-            dragState = .dragging
+/// A waypoint marker that can be picked up and dragged: hold it for a moment, then move.
+///
+/// The map's own annotation dragging selects the marker but does not reliably start moving it,
+/// so the marker follows the finger itself.
+final class WaypointAnnotationView: MKAnnotationView, UIGestureRecognizerDelegate {
+    /// Called with the new position when the marker is dropped.
+    var onDragEnded: ((CLLocationCoordinate2D) -> Void)?
+
+    /// While dragged the marker floats this far above the finger, so it is not hidden under it.
+    private static let lift: CGFloat = 34
+
+    private var startCoordinate: CLLocationCoordinate2D?
+    /// From the finger to the marker's point on the map when the drag began.
+    private var grabOffset = CGPoint.zero
+    private var mapWasScrollable = true
+
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(handleHold(_:)))
+        hold.minimumPressDuration = 0.3
+        hold.delegate = self
+        addGestureRecognizer(hold)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not used")
+    }
+
+    private var mapView: MKMapView? {
+        var view = superview
+        while let current = view {
+            if let map = current as? MKMapView {
+                return map
+            }
+            view = current.superview
+        }
+        return nil
+    }
+
+    @objc private func handleHold(_ recognizer: UILongPressGestureRecognizer) {
+        guard let mapView, let point = annotation as? MKPointAnnotation else { return }
+        let finger = recognizer.location(in: mapView)
+
+        switch recognizer.state {
+        case .began:
+            startCoordinate = point.coordinate
+            let anchor = mapView.convert(point.coordinate, toPointTo: mapView)
+            grabOffset = CGPoint(x: anchor.x - finger.x, y: anchor.y - finger.y)
+            // The map must not pan along with the marker.
+            mapWasScrollable = mapView.isScrollEnabled
+            mapView.isScrollEnabled = false
             setLifted(true)
-        case .ending, .canceling:
-            dragState = .none
-            setLifted(false)
+            move(point, toFinger: finger, in: mapView)
+
+        case .changed:
+            move(point, toFinger: finger, in: mapView)
+
+        case .ended:
+            mapView.isScrollEnabled = mapWasScrollable
+            setLifted(isSelected)
+            let start = startCoordinate
+            startCoordinate = nil
+            let end = point.coordinate
+            if let start, start.latitude != end.latitude || start.longitude != end.longitude {
+                onDragEnded?(end)
+            }
+
+        case .cancelled, .failed:
+            mapView.isScrollEnabled = mapWasScrollable
+            setLifted(isSelected)
+            if let start = startCoordinate {
+                point.coordinate = start
+            }
+            startCoordinate = nil
+
         default:
             break
         }
     }
 
+    private func move(_ point: MKPointAnnotation, toFinger finger: CGPoint, in mapView: MKMapView) {
+        let target = CGPoint(x: finger.x + grabOffset.x, y: finger.y + grabOffset.y - Self.lift)
+        let coordinate = mapView.convert(target, toCoordinateFrom: mapView)
+        if CLLocationCoordinate2DIsValid(coordinate) {
+            point.coordinate = coordinate
+        }
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        // The map's own recognizers must not keep the hold from starting.
+        true
+    }
+
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
-        if dragState == .none {
+        if startCoordinate == nil {
             setLifted(selected)
         }
     }
@@ -541,6 +604,8 @@ final class WaypointAnnotationView: MKAnnotationView {
     override func prepareForReuse() {
         super.prepareForReuse()
         transform = .identity
+        startCoordinate = nil
+        onDragEnded = nil
     }
 
     private func setLifted(_ lifted: Bool) {

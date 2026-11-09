@@ -67,6 +67,7 @@ struct ElevationChart: View {
                         if let kilometres = value.as(Double.self) {
                             Text("\(kilometres.formatted(.number.precision(.fractionLength(0...1)))) km")
                                 .font(.signLabel(11))
+                                .fixedSize()
                                 .foregroundStyle(Brand.ink.opacity(0.8))
                         }
                     }

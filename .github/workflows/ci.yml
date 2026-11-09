@@ -42,6 +42,9 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -resultBundlePath TestResults.xcresult \
             -quiet
+      - name: Show why tests failed
+        if: failure()
+        run: xcrun xcresulttool get test-results summary --path TestResults.xcresult
       - name: Export screenshots
         if: always()
         run: |
