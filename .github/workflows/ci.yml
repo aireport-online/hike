@@ -12,6 +12,8 @@ jobs:
   core:
     name: Kernlogica (swift test)
     runs-on: ubuntu-latest
+    # The runner images do not all ship Swift; the official image always does.
+    container: swift:6.0
     steps:
       - uses: actions/checkout@v5
       - name: Test HikeCore
