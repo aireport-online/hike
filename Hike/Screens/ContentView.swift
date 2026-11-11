@@ -14,8 +14,10 @@ struct ContentView: View {
     @State private var showsLocationDenied = false
     /// The user asked for their position before permission was given; follow once it is.
     @State private var followsWhenAuthorized = false
-    /// The name being typed in the save prompt; nil while the prompt is closed.
-    @State private var saveName: String?
+    /// Whether the save prompt is open. Kept apart from the name: the text field writes an empty
+    /// name back while it is being taken away, and that must not open the prompt again.
+    @State private var isNamingRoute = false
+    @State private var saveName = ""
     @State private var topInset: CGFloat = 0
     @State private var bottomInset: CGFloat = 0
 
@@ -59,19 +61,19 @@ struct ContentView: View {
                 .background { heightReader { bottomInset = $0 } }
             }
 
-            if saveName != nil {
+            if isNamingRoute {
                 SavePrompt(
-                    name: Binding(get: { saveName ?? "" }, set: { saveName = $0 }),
-                    onCancel: { saveName = nil },
+                    name: $saveName,
+                    onCancel: { isNamingRoute = false },
                     onSave: {
-                        model.save(name: saveName ?? "")
-                        saveName = nil
+                        model.save(name: saveName)
+                        isNamingRoute = false
                     }
                 )
                 .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: saveName != nil)
+        .animation(.easeOut(duration: 0.15), value: isNamingRoute)
         .tint(Brand.line)
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -201,6 +203,7 @@ struct ContentView: View {
     private func promptForSave() {
         Task {
             saveName = await model.suggestedName()
+            isNamingRoute = true
         }
     }
 
