@@ -1,5 +1,11 @@
 # Hike
 
+## Over deze publicatie
+
+Deze broncode is gedeeld bij de AI Report-masterclass over software bouwen met AI.
+Je kunt het project bestuderen, zelf draaien, forken en aanpassen onder de [MIT-licentie](LICENSE).
+Dit is een voorbeeldproject uit de masterclass; er wordt geen gehoste dienst of doorlopend onderhoud aangeboden.
+
 iPhone-app om wandelingen te plannen, overal in Europa. Tik punten op de kaart; de app verbindt
 ze over wandelpaden en laat afstand, hoogtemeters, wandeltijd en het hoogteprofiel zien.
 
